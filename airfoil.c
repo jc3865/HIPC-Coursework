@@ -23,73 +23,73 @@ void compute_tentative_velocity() {
         // Collapse this double nested for loop into a (imax - 1) * (jmax) sized loop.
         // Static scheduling is used here since the loop size is fixed.
         #pragma omp for collapse(2) schedule(static)
-    for (int i = 1; i < imax; i++) {
-        for (int j = 1; j < jmax+1; j++) {
-            /* only if both adjacent cells are fluid cells */
-            if ((flag[i][j] & C_F) && (flag[i+1][j] & C_F)) {
-                double du2dx = ((u[i][j] + u[i+1][j]) * (u[i][j] + u[i+1][j]) +
-                                y * fabs(u[i][j] + u[i+1][j]) * (u[i][j] - u[i+1][j]) -
-                                (u[i-1][j] + u[i][j]) * (u[i-1][j] + u[i][j]) -
-                                y * fabs(u[i-1][j] + u[i][j]) * (u[i-1][j]-u[i][j]))
-                                / (4.0 * delx);
-                double duvdy = ((v[i][j] + v[i+1][j]) * (u[i][j] + u[i][j+1]) +
-                                y * fabs(v[i][j] + v[i+1][j]) * (u[i][j] - u[i][j+1]) -
-                                (v[i][j-1] + v[i+1][j-1]) * (u[i][j-1] + u[i][j]) -
-                                y * fabs(v[i][j-1] + v[i+1][j-1]) * (u[i][j-1] - u[i][j]))
-                                / (4.0 * dely);
-                double laplu = (u[i+1][j] - 2.0 * u[i][j] + u[i-1][j]) / delx / delx +
-                                (u[i][j+1] - 2.0 * u[i][j] + u[i][j-1]) / dely / dely;
-   
-                f[i][j] = u[i][j] + del_t * (laplu / Re - du2dx - duvdy);
-            } else {
-                f[i][j] = u[i][j];
+        for (int i = 1; i < imax; i++) {
+            for (int j = 1; j < jmax+1; j++) {
+                /* only if both adjacent cells are fluid cells */
+                if ((flag[i][j] & C_F) && (flag[i+1][j] & C_F)) {
+                    double du2dx = ((u[i][j] + u[i+1][j]) * (u[i][j] + u[i+1][j]) +
+                                    y * fabs(u[i][j] + u[i+1][j]) * (u[i][j] - u[i+1][j]) -
+                                    (u[i-1][j] + u[i][j]) * (u[i-1][j] + u[i][j]) -
+                                    y * fabs(u[i-1][j] + u[i][j]) * (u[i-1][j]-u[i][j]))
+                                    / (4.0 * delx);
+                    double duvdy = ((v[i][j] + v[i+1][j]) * (u[i][j] + u[i][j+1]) +
+                                    y * fabs(v[i][j] + v[i+1][j]) * (u[i][j] - u[i][j+1]) -
+                                    (v[i][j-1] + v[i+1][j-1]) * (u[i][j-1] + u[i][j]) -
+                                    y * fabs(v[i][j-1] + v[i+1][j-1]) * (u[i][j-1] - u[i][j]))
+                                    / (4.0 * dely);
+                    double laplu = (u[i+1][j] - 2.0 * u[i][j] + u[i-1][j]) / delx / delx +
+                                    (u[i][j+1] - 2.0 * u[i][j] + u[i][j-1]) / dely / dely;
+    
+                    f[i][j] = u[i][j] + del_t * (laplu / Re - du2dx - duvdy);
+                } else {
+                    f[i][j] = u[i][j];
+                }
             }
         }
-    }
 
         // Collapse this double nested for loop into a (imax) * (jmax - 1) sized loop.
         // Static scheduling is used here since the loop size is fixed.
         #pragma omp for collapse(2) schedule(static)
-    for (int i = 1; i < imax+1; i++) {
-        for (int j = 1; j < jmax; j++) {
-            /* only if both adjacent cells are fluid cells */
-            if ((flag[i][j] & C_F) && (flag[i][j+1] & C_F)) {
-                double duvdx = ((u[i][j] + u[i][j+1]) * (v[i][j] + v[i+1][j]) +
-                                y * fabs(u[i][j] + u[i][j+1]) * (v[i][j] - v[i+1][j]) -
-                                (u[i-1][j] + u[i-1][j+1]) * (v[i-1][j] + v[i][j]) -
-                                y * fabs(u[i-1][j] + u[i-1][j+1]) * (v[i-1][j]-v[i][j]))
-                                / (4.0 * delx);
-                double dv2dy = ((v[i][j] + v[i][j+1]) * (v[i][j] + v[i][j+1]) +
-                                y * fabs(v[i][j] + v[i][j+1]) * (v[i][j] - v[i][j+1]) -
-                                (v[i][j-1] + v[i][j]) * (v[i][j-1] + v[i][j]) -
-                                y * fabs(v[i][j-1] + v[i][j]) * (v[i][j-1] - v[i][j]))
-                                / (4.0 * dely);
-                double laplv = (v[i+1][j] - 2.0 * v[i][j] + v[i-1][j]) / delx / delx +
-                                (v[i][j+1] - 2.0 * v[i][j] + v[i][j-1]) / dely / dely;
+        for (int i = 1; i < imax+1; i++) {
+            for (int j = 1; j < jmax; j++) {
+                /* only if both adjacent cells are fluid cells */
+                if ((flag[i][j] & C_F) && (flag[i][j+1] & C_F)) {
+                    double duvdx = ((u[i][j] + u[i][j+1]) * (v[i][j] + v[i+1][j]) +
+                                    y * fabs(u[i][j] + u[i][j+1]) * (v[i][j] - v[i+1][j]) -
+                                    (u[i-1][j] + u[i-1][j+1]) * (v[i-1][j] + v[i][j]) -
+                                    y * fabs(u[i-1][j] + u[i-1][j+1]) * (v[i-1][j]-v[i][j]))
+                                    / (4.0 * delx);
+                    double dv2dy = ((v[i][j] + v[i][j+1]) * (v[i][j] + v[i][j+1]) +
+                                    y * fabs(v[i][j] + v[i][j+1]) * (v[i][j] - v[i][j+1]) -
+                                    (v[i][j-1] + v[i][j]) * (v[i][j-1] + v[i][j]) -
+                                    y * fabs(v[i][j-1] + v[i][j]) * (v[i][j-1] - v[i][j]))
+                                    / (4.0 * dely);
+                    double laplv = (v[i+1][j] - 2.0 * v[i][j] + v[i-1][j]) / delx / delx +
+                                    (v[i][j+1] - 2.0 * v[i][j] + v[i][j-1]) / dely / dely;
 
-                g[i][j] = v[i][j] + del_t * (laplv / Re - duvdx - dv2dy);
-            } else {
-                g[i][j] = v[i][j];
+                    g[i][j] = v[i][j] + del_t * (laplv / Re - duvdx - dv2dy);
+                } else {
+                    g[i][j] = v[i][j];
+                }
             }
         }
-    }
 
-    /* f & g at external boundaries */
-
-        // Parallelise this for loop using static scheduling since it is of fixed size.
-        #pragma omp for schedule(static)
-    for (int j = 1; j < jmax+1; j++) {
-        f[0][j]    = u[0][j];
-        f[imax][j] = u[imax][j];
-    }
+        /* f & g at external boundaries */
 
         // Parallelise this for loop using static scheduling since it is of fixed size.
         #pragma omp for schedule(static)
-    for (int i = 1; i < imax+1; i++) {
-        g[i][0]    = v[i][0];
-        g[i][jmax] = v[i][jmax];
+        for (int j = 1; j < jmax+1; j++) {
+            f[0][j]    = u[0][j];
+            f[imax][j] = u[imax][j];
+        }
+
+        // Parallelise this for loop using static scheduling since it is of fixed size.
+        #pragma omp for schedule(static)
+        for (int i = 1; i < imax+1; i++) {
+            g[i][0]    = v[i][0];
+            g[i][jmax] = v[i][jmax];
+        }
     }
-}
 }
 
 
@@ -98,13 +98,20 @@ void compute_tentative_velocity() {
  * 
  */
 void compute_rhs() {
-    for (int i = 1; i < imax+1; i++) {
-        for (int j = 1;j < jmax+1; j++) {
-            if (flag[i][j] & C_F) {
-                /* only for fluid and non-surface cells */
-                rhs[i][j] = ((f[i][j] - f[i-1][j]) / delx + 
-                             (g[i][j] - g[i][j-1]) / dely)
-                             / del_t;
+    // This whole method can be parallelised so wrap it in a parallel block.
+    #pragma omp parallel
+    {
+        // Collapse this for loop into a imax*jmax loop and parallelise.
+        // Static scheduling is used since the loop size is fixed.
+        #pragma omp for collapse(2) schedule(static)
+        for (int i = 1; i < imax+1; i++) {
+            for (int j = 1;j < jmax+1; j++) {
+                if (flag[i][j] & C_F) {
+                    /* only for fluid and non-surface cells */
+                    rhs[i][j] = ((f[i][j] - f[i-1][j]) / delx + 
+                                (g[i][j] - g[i][j-1]) / dely)
+                                / del_t;
+                }
             }
         }
     }
