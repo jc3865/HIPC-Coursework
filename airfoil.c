@@ -17,6 +17,12 @@
  * 
  */
 void compute_tentative_velocity() {
+    // Put method in one parallel block, since all of this function can be parallelised.
+    #pragma omp parallel
+    {
+        // Collapse this double nested for loop into a (imax - 1) * (jmax) sized loop.
+        // Static scheduling is used here since the loop size is fixed.
+        #pragma omp for collapse(2) schedule(static)
     for (int i = 1; i < imax; i++) {
         for (int j = 1; j < jmax+1; j++) {
             /* only if both adjacent cells are fluid cells */
@@ -40,6 +46,10 @@ void compute_tentative_velocity() {
             }
         }
     }
+
+        // Collapse this double nested for loop into a (imax) * (jmax - 1) sized loop.
+        // Static scheduling is used here since the loop size is fixed.
+        #pragma omp for collapse(2) schedule(static)
     for (int i = 1; i < imax+1; i++) {
         for (int j = 1; j < jmax; j++) {
             /* only if both adjacent cells are fluid cells */
@@ -65,14 +75,21 @@ void compute_tentative_velocity() {
     }
 
     /* f & g at external boundaries */
+
+        // Parallelise this for loop using static scheduling since it is of fixed size.
+        #pragma omp for schedule(static)
     for (int j = 1; j < jmax+1; j++) {
         f[0][j]    = u[0][j];
         f[imax][j] = u[imax][j];
     }
+
+        // Parallelise this for loop using static scheduling since it is of fixed size.
+        #pragma omp for schedule(static)
     for (int i = 1; i < imax+1; i++) {
         g[i][0]    = v[i][0];
         g[i][jmax] = v[i][jmax];
     }
+}
 }
 
 
