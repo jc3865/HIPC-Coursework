@@ -125,75 +125,109 @@ void compute_rhs() {
  * 
  */
 double poisson() {
+    double res = 0.0;
+    double p0 = 0.0;
+    
+    // Global flag for residual convergence.
+    int residual_convered = 0;
+
     double rdx2 = 1.0 / (delx * delx);
     double rdy2 = 1.0 / (dely * dely);
     double beta_2 = -omega / (2.0 * (rdx2 + rdy2));
 
-    double p0 = 0.0;
-    /* Calculate sum of squares */
-    for (int i = 1; i < imax+1; i++) {
-        for (int j = 1; j < jmax+1; j++) {
-            if (flag[i][j] & C_F) { p0 += p[i][j] * p[i][j]; }
-        }
-    }
-   
-    p0 = sqrt(p0 / fluid_cells); 
-    if (p0 < 0.0001) { p0 = 1.0; }
+    // Parallelise this entire section.
+    #pragma omp parallel
+    {
+        /* Calculate sum of squares */
 
-    /* Red/Black SOR-iteration */
-    int iter;
-    double res = 0.0;
-    for (iter = 0; iter < itermax; iter++) {
-        for (int rb = 0; rb < 2; rb++) {
+        // Collapse this for loop into a imax * jmax size loop.
+        // Use static scheduling since the loop size is static.
+        // Use a reduction on p0.
+        #pragma omp for collapse(2) schedule(static) reduction(+:p0)
+        for (int i = 1; i < imax+1; i++) {
+            for (int j = 1; j < jmax+1; j++) {
+                if (flag[i][j] & C_F) { p0 += p[i][j] * p[i][j]; }
+            }
+        }
+    
+        // Execute this section on a single thread.
+        #pragma omp single
+        {
+            p0 = sqrt(p0 / fluid_cells); 
+            if (p0 < 0.0001) { p0 = 1.0; }
+        }
+
+        /* Red/Black SOR-iteration */
+        for (int iter = 0; iter < itermax; iter++) {
+            if (residual_convered) { break; }
+
+            for (int rb = 0; rb < 2; rb++) {
+
+                // Collapse this for loop into a imax * jmax size loop.
+                // Use static scheduling since the loop size is static.
+                #pragma omp for collapse(2) schedule(static)
+                for (int i = 1; i < imax+1; i++) {
+                    for (int j = 1; j < jmax+1; j++) {
+                        if ((i + j) % 2 != rb) { continue; }
+                        if (flag[i][j] == (C_F | B_NSEW)) {
+                            /* five point star for interior fluid cells */
+                            p[i][j] = (1.0 - omega) * p[i][j] - 
+                                beta_2 * ((p[i+1][j] + p[i-1][j] ) *rdx2
+                                    + (p[i][j+1] + p[i][j-1]) * rdy2
+                                    - rhs[i][j]);
+                        } else if (flag[i][j] & C_F) { 
+                            /* modified star near boundary */
+
+                            double eps_E = ((flag[i+1][j] & C_F) ? 1.0 : 0.0);
+                            double eps_W = ((flag[i-1][j] & C_F) ? 1.0 : 0.0);
+                            double eps_N = ((flag[i][j+1] & C_F) ? 1.0 : 0.0);
+                            double eps_S = ((flag[i][j-1] & C_F) ? 1.0 : 0.0);
+
+                            double beta_mod = -omega / ((eps_E + eps_W) * rdx2 + (eps_N + eps_S) * rdy2);
+                            p[i][j] = (1.0 - omega) * p[i][j] -
+                                beta_mod * ((eps_E * p[i+1][j] + eps_W * p[i-1][j]) * rdx2
+                                    + (eps_N * p[i][j+1] + eps_S * p[i][j-1]) * rdy2
+                                    - rhs[i][j]);
+                        }
+                    }
+                }
+
+                #pragma omp barrier
+            }
+            
+            /* computation of residual */
+
+            // Collapse this for loop into a imax * jmax size loop.
+            // Use static scheduling since the loop size is static.
+            // Use a reduction on p0.
+            #pragma omp for collapse(2) schedule(static) reduction(+:res)
             for (int i = 1; i < imax+1; i++) {
                 for (int j = 1; j < jmax+1; j++) {
-                    if ((i + j) % 2 != rb) { continue; }
-                    if (flag[i][j] == (C_F | B_NSEW)) {
-                        /* five point star for interior fluid cells */
-                        p[i][j] = (1.0 - omega) * p[i][j] - 
-                              beta_2 * ((p[i+1][j] + p[i-1][j] ) *rdx2
-                                  + (p[i][j+1] + p[i][j-1]) * rdy2
-                                  - rhs[i][j]);
-                    } else if (flag[i][j] & C_F) { 
-                        /* modified star near boundary */
-
+                    if (flag[i][j] & C_F) {
                         double eps_E = ((flag[i+1][j] & C_F) ? 1.0 : 0.0);
                         double eps_W = ((flag[i-1][j] & C_F) ? 1.0 : 0.0);
                         double eps_N = ((flag[i][j+1] & C_F) ? 1.0 : 0.0);
                         double eps_S = ((flag[i][j-1] & C_F) ? 1.0 : 0.0);
 
-                        double beta_mod = -omega / ((eps_E + eps_W) * rdx2 + (eps_N + eps_S) * rdy2);
-                        p[i][j] = (1.0 - omega) * p[i][j] -
-                            beta_mod * ((eps_E * p[i+1][j] + eps_W * p[i-1][j]) * rdx2
-                                + (eps_N * p[i][j+1] + eps_S * p[i][j-1]) * rdy2
-                                - rhs[i][j]);
+                        /* only fluid cells */
+                        double add = (eps_E * (p[i+1][j] - p[i][j]) - 
+                            eps_W * (p[i][j] - p[i-1][j])) * rdx2  +
+                            (eps_N * (p[i][j+1] - p[i][j]) -
+                            eps_S * (p[i][j] - p[i][j-1])) * rdy2  -  rhs[i][j];
+                        res += add * add;
                     }
                 }
             }
-        }
-        
-        /* computation of residual */
-        for (int i = 1; i < imax+1; i++) {
-            for (int j = 1; j < jmax+1; j++) {
-                if (flag[i][j] & C_F) {
-                    double eps_E = ((flag[i+1][j] & C_F) ? 1.0 : 0.0);
-                    double eps_W = ((flag[i-1][j] & C_F) ? 1.0 : 0.0);
-                    double eps_N = ((flag[i][j+1] & C_F) ? 1.0 : 0.0);
-                    double eps_S = ((flag[i][j-1] & C_F) ? 1.0 : 0.0);
 
-                    /* only fluid cells */
-                    double add = (eps_E * (p[i+1][j] - p[i][j]) - 
-                        eps_W * (p[i][j] - p[i-1][j])) * rdx2  +
-                        (eps_N * (p[i][j+1] - p[i][j]) -
-                        eps_S * (p[i][j] - p[i][j-1])) * rdy2  -  rhs[i][j];
-                    res += add * add;
-                }
+            // Execute this section on a single thread.
+            #pragma omp single
+            {
+                res = sqrt(res / fluid_cells) / p0;
+
+                /* convergence? */
+                if (res < eps) { residual_convered = 1; }
             }
         }
-        res = sqrt(res / fluid_cells) / p0;
-        
-        /* convergence? */
-        if (res < eps) break;
     }
 
     return res;
@@ -204,7 +238,7 @@ double poisson() {
  * @brief Update the velocity values based on the tentative
  * velocity values and the new pressure matrix
  */
-void update_velocity() {   
+void update_velocity() {
     for (int i = 1; i < imax-2; i++) {
         for (int j = 1; j < jmax-1; j++) {
             /* only if both adjacent cells are fluid cells */
