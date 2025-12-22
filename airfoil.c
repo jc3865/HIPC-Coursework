@@ -275,33 +275,47 @@ void update_velocity() {
  */
 void set_timestep_interval() {
     /* del_t satisfying CFL conditions */
-    if (tau >= 1.0e-10) { /* else no time stepsize control */
-        double umax = 1.0e-10;
-        double vmax = 1.0e-10; 
-        
+    /* else no time stepsize control */
+    if (tau < 1.0e-10) { return; }
+
+    double umax = 1.0e-10;
+    double vmax = 1.0e-10; 
+    
+    #pragma omp parallel
+    {
+        // Collapse this loop into a (imax + 2) * (jmax + 1) sized loop.
+        // Use static scheduling since loop size is fixed.
+        // Use a reduction to find max value for umax.
+        #pragma omp for collapse(2) schedule(static) reduction(max:umax)
         for (int i = 0; i < imax+2; i++) {
             for (int j = 1; j < jmax+2; j++) {
-                umax = fmax(fabs(u[i][j]), umax);
+                double u_value = fabs(u[i][j]);
+                if (u_value > umax) { umax = u_value; }
             }
         }
 
+        // Collapse this loop into a (imax + 2) * (jmax + 1) sized loop.
+        // Use static scheduling since loop size is fixed.
+        // Use a reduction to find max value for vmax.
+        #pragma omp for collapse(2) schedule(static) reduction(max:vmax)
         for (int i = 1; i < imax+2; i++) {
             for (int j = 0; j < jmax+2; j++) {
-                vmax = fmax(fabs(v[i][j]), vmax);
+                double v_value = fabs(v[i][j]);
+                if (v_value > vmax) { vmax = v_value; }
             }
         }
-
-        double deltu = delx / umax;
-        double deltv = dely / vmax; 
-        double deltRe = 1.0 / (1.0 / (delx * delx) + 1 / (dely * dely)) * Re / 2.0;
-
-        if (deltu < deltv) {
-            del_t = fmin(deltu, deltRe);
-        } else {
-            del_t = fmin(deltv, deltRe);
-        }
-        del_t = tau * del_t; /* multiply by safety factor */
     }
+
+    double deltu = delx / umax;
+    double deltv = dely / vmax; 
+    double deltRe = 1.0 / (1.0 / (delx * delx) + 1 / (dely * dely)) * Re / 2.0;
+
+    if (deltu < deltv) {
+        del_t = fmin(deltu, deltRe);
+    } else {
+        del_t = fmin(deltv, deltRe);
+    }
+    del_t = tau * del_t; /* multiply by safety factor */
 }
 
 /**
