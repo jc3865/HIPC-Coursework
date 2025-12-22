@@ -239,20 +239,30 @@ double poisson() {
  * velocity values and the new pressure matrix
  */
 void update_velocity() {
-    for (int i = 1; i < imax-2; i++) {
-        for (int j = 1; j < jmax-1; j++) {
-            /* only if both adjacent cells are fluid cells */
-            if ((flag[i][j] & C_F) && (flag[i+1][j] & C_F)) {
-                u[i][j] = f[i][j] - (p[i+1][j] - p[i][j]) * del_t / delx;
+    // Wrap this entire function in a parallel block.
+    #pragma omp parallel
+    {
+        // Collapse this for loop into a (imax - 3) * (jmax - 2) sized loop.
+        // Use static scheduling since loop size is fixed.
+        #pragma omp for collapse(2) schedule(static)
+        for (int i = 1; i < imax-2; i++) {
+            for (int j = 1; j < jmax-1; j++) {
+                /* only if both adjacent cells are fluid cells */
+                if ((flag[i][j] & C_F) && (flag[i+1][j] & C_F)) {
+                    u[i][j] = f[i][j] - (p[i+1][j] - p[i][j]) * del_t / delx;
+                }
             }
         }
-    }
-    
-    for (int i = 1; i < imax-1; i++) {
-        for (int j = 1; j < jmax-2; j++) {
-            /* only if both adjacent cells are fluid cells */
-            if ((flag[i][j] & C_F) && (flag[i][j+1] & C_F)) {
-                v[i][j] = g[i][j] - (p[i][j+1] - p[i][j]) * del_t / dely;
+        
+        // Collapse this for loop into a (imax - 3) * (jmax - 2) sized loop.
+        // Use static scheduling since loop size is fixed.
+        #pragma omp for collapse(2) schedule(static)
+        for (int i = 1; i < imax-1; i++) {
+            for (int j = 1; j < jmax-2; j++) {
+                /* only if both adjacent cells are fluid cells */
+                if ((flag[i][j] & C_F) && (flag[i][j+1] & C_F)) {
+                    v[i][j] = g[i][j] - (p[i][j+1] - p[i][j]) * del_t / dely;
+                }
             }
         }
     }
