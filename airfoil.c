@@ -12,6 +12,12 @@
 #include "boundary.h"
 #include "args.h"
 
+// Shared variables used within parallel functions using reductions.
+double p0 = 0.0;
+double res = 0.0;
+double umax = 1.0e-10;
+double vmax = 1.0e-10; 
+
 /**
  * @brief Computation of tentative velocity field (f, g)
  * 
@@ -117,8 +123,11 @@ void compute_rhs() {
  * 
  */
 double poisson() {
-    double res = 0.0;
-    double p0 = 0.0;
+    #pragma omp single
+    {
+        res = 0.0;
+        p0 = 0.0;
+    }
     
     // Global flag for residual convergence.
     int residual_convered = 0;
@@ -262,9 +271,12 @@ void set_timestep_interval() {
     /* else no time stepsize control */
     if (tau < 1.0e-10) { return; }
 
-    double umax = 1.0e-10;
-    double vmax = 1.0e-10; 
-    
+    #pragma omp single
+    {
+        umax = 1.0e-10;
+        vmax = 1.0e-10; 
+    }
+
     // Collapse this loop into a (imax + 2) * (jmax + 1) sized loop.
     // Use static scheduling since loop size is fixed.
     // Use a reduction to find max value for umax.
