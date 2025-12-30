@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <omp.h>
 
 #include "data.h"
 #include "vtk.h"
