@@ -21,9 +21,6 @@ clean:
 	rm -Rf $(OBJDIR)
 	rm -f airfoil
 
-configure:
-	export OMP_NUM_THREADS=8
-
 directories: $(OBJDIR)
 
 $(OBJDIR):
