@@ -106,8 +106,12 @@ double poisson() {
     double rdy2 = 1.0 / (dely * dely);
     double beta_2 = -omega / (2.0 * (rdx2 + rdy2));
 
-    double p0 = 0.0;
+    double p0 = 0.0;    
     /* Calculate sum of squares */
+
+    // Collapse this for loop and use static scheduling since the loop size is fixed.
+    // Use a reduction to get a final value for p0 after all threads have finished calculation.
+    #pragma omp parallel for collapse(2) schedule(static) reduction(+:p0)
     for (int i = 1; i < imax+1; i++) {
         for (int j = 1; j < jmax+1; j++) {
             if (flag[i][j] & C_F) { p0 += p[i][j] * p[i][j]; }
@@ -122,6 +126,9 @@ double poisson() {
     double res = 0.0;
     for (iter = 0; iter < itermax; iter++) {
         for (int rb = 0; rb < 2; rb++) {
+
+            // Collapse this for loop and use static scheduling since the loop size is fixed.
+            #pragma omp parallel for collapse(2) schedule(static)
             for (int i = 1; i < imax+1; i++) {
                 for (int j = 1; j < jmax+1; j++) {
                     if ((i + j) % 2 != rb) { continue; }
@@ -150,6 +157,8 @@ double poisson() {
         }
         
         /* computation of residual */
+
+        #pragma omp parallel for collapse(2) schedule(static) reduction(+:res)
         for (int i = 1; i < imax+1; i++) {
             for (int j = 1; j < jmax+1; j++) {
                 if (flag[i][j] & C_F) {
