@@ -182,6 +182,8 @@ double poisson() {
  * velocity values and the new pressure matrix
  */
 void update_velocity() {   
+    // Collapse this for loop and use static scheduling since the loop size is fixed.
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 1; i < imax-2; i++) {
         for (int j = 1; j < jmax-1; j++) {
             /* only if both adjacent cells are fluid cells */
@@ -191,6 +193,8 @@ void update_velocity() {
         }
     }
     
+    // Collapse this for loop and use static scheduling since the loop size is fixed.
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 1; i < imax-1; i++) {
         for (int j = 1; j < jmax-2; j++) {
             /* only if both adjacent cells are fluid cells */
