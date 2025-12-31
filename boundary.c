@@ -1,3 +1,5 @@
+#include <omp.h>
+
 #include "data.h"
 #include "boundary.h"
 
@@ -7,6 +9,8 @@
  * edges of the matrix.
  */
 void apply_boundary_conditions() {
+    // We can parallelise this for loop since there are no data race conditions.
+    #pragma omp parallel for schedule(static)
     for (int j = 0; j < jmax+2; j++) {
         /* Fluid freely flows in from the west */
         u[0][j] = u[1][j];
@@ -17,6 +21,8 @@ void apply_boundary_conditions() {
         v[imax+1][j] = v[imax][j];
     }
 
+    // We can parallelise this for loop since there are no data race conditions.
+    #pragma omp parallel for schedule(static)
     for (int i = 0; i < imax+2; i++) {
         /* The vertical velocity approaches 0 at the north and south
          * boundaries, but fluid flows freely in the horizontal direction */
@@ -88,6 +94,9 @@ void apply_boundary_conditions() {
      * a continual flow of fluid into the simulation.
      */
     v[0][0] = 2 * vi-v[1][0];
+
+    // We can parallelise this for loop since there are no data race conditions.
+    #pragma omp parallel for schedule(static)
     for (int j = 1; j < jmax+1; j++) {
         u[0][j] = ui;
         v[0][j] = 2 * vi - v[1][j];
