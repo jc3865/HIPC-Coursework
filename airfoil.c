@@ -82,6 +82,8 @@ void compute_tentative_velocity() {
  * 
  */
 void compute_rhs() {
+    // Collapse this for loop and use static scheduling since the loop size is fixed.
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int i = 1; i < imax+1; i++) {
         for (int j = 1;j < jmax+1; j++) {
             if (flag[i][j] & C_F) {
@@ -158,6 +160,8 @@ double poisson() {
         
         /* computation of residual */
 
+        // Collapse this for loop and use static scheduling since the loop size is fixed.
+        // Use a reduction to get a final value for res after all threads have finished calculation.
         #pragma omp parallel for collapse(2) schedule(static) reduction(+:res)
         for (int i = 1; i < imax+1; i++) {
             for (int j = 1; j < jmax+1; j++) {
