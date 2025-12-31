@@ -212,12 +212,18 @@ void set_timestep_interval() {
         double umax = 1.0e-10;
         double vmax = 1.0e-10; 
         
+        // Collapse this for loop and use static scheduling since the loop size is fixed.
+        // Use a reduction to find the maximum value of umax across all threads.
+        #pragma omp parallel for collapse(2) schedule(static) reduction(max:umax)
         for (int i = 0; i < imax+2; i++) {
             for (int j = 1; j < jmax+2; j++) {
                 umax = fmax(fabs(u[i][j]), umax);
             }
         }
 
+        // Collapse this for loop and use static scheduling since the loop size is fixed.
+        // Use a reduction to find the maximum value of vmax across all threads.
+        #pragma omp parallel for collapse(2) schedule(static) reduction(max:vmax)
         for (int i = 1; i < imax+2; i++) {
             for (int j = 0; j < jmax+2; j++) {
                 vmax = fmax(fabs(v[i][j]), vmax);
