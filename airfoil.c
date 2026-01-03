@@ -314,6 +314,9 @@ int main(int argc, char *argv[]) {
     parse_args(argc, argv);
     setup();
 
+    allocate_arrays();
+    problem_set_up();
+
     // Setup domain information for this process.
     int min_domain_X_span = imax / size;
     int remaining_X_cells = imax % size; // Add remaining cells to first few ranks.
@@ -324,10 +327,7 @@ int main(int argc, char *argv[]) {
     process_domain.starting_X_index = 1 + rank * min_domain_X_span + (rank < remaining_X_cells ? rank : remaining_X_cells);
     process_domain.ending_X_index = process_domain.starting_X_index + process_domain.owned_X_span - 1;
 
-    if (verbose) print_opts();
-
-    allocate_arrays();
-    problem_set_up();
+    if (rank == 0 && verbose) print_opts();
 
     double res;
 
@@ -338,7 +338,13 @@ int main(int argc, char *argv[]) {
         if (!fixed_dt)
             set_timestep_interval(&process_domain);
 
+        exchange_array(u, &process_domain);
+        exchange_array(v, &process_domain);
+
         compute_tentative_velocity(&process_domain);
+
+        exchange_array(f, &process_domain);
+        exchange_array(g, &process_domain);
 
         compute_rhs(&process_domain);
 
@@ -349,9 +355,12 @@ int main(int argc, char *argv[]) {
 
         update_velocity(&process_domain);
 
+        exchange_array(u, &process_domain);
+        exchange_array(v, &process_domain);
+
         apply_boundary_conditions();
 
-        if ((iters % output_freq == 0)) {
+        if (rank == 0 && (iters % output_freq == 0)) {
             printf("Step %8d, Time: %14.8e (del_t: %14.8e), Residual: %14.8e\n", iters, t+del_t, del_t, res);
  
             if ((!no_output) && (enable_checkpoints))
@@ -359,11 +368,13 @@ int main(int argc, char *argv[]) {
         }
     } /* End of main loop */
 
-    printf("Step %8d, Time: %14.8e, Residual: %14.8e\n", iters, t, res);
-    printf("Simulation complete.\n");
+    if (rank == 0) {
+        printf("Step %8d, Time: %14.8e, Residual: %14.8e\n", iters, t, res);
+        printf("Simulation complete.\n");
 
-    if (!no_output)
-        write_result(iters, t);
+        if (!no_output)
+            write_result(iters, t);
+    }
 
     free_arrays();
 
