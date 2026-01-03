@@ -13,6 +13,14 @@
 #include "boundary.h"
 #include "args.h"
 
+// This structure can be used to store the local index information
+// for each MPI process.
+typedef struct {
+    int owned_X_span;
+    int starting_X_index;
+    int ending_X_index;
+} MPI_Domain;
+
 /**
  * @brief Computation of tentative velocity field (f, g)
  * 
@@ -254,7 +262,6 @@ void set_timestep_interval() {
  */
 int main(int argc, char *argv[]) {
     int rank, size;
-
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -262,6 +269,14 @@ int main(int argc, char *argv[]) {
     set_defaults();
     parse_args(argc, argv);
     setup();
+
+    // Setup domain information for this process.
+    int min_domain_X_span = imax / size;
+    int remaining_X_cells = imax % size;
+    MPI_Domain process_domain;
+    process_domain.owned_X_span = min_domain_X_span + (rank < remaining_X_cells ? 1 : 0);
+    process_domain.starting_X_index = 1 + rank * min_domain_X_span + (rank < remaining_X_cells ? rank : remaining_X_cells);
+    process_domain.ending_X_index = process_domain.starting_X_index + process_domain.owned_X_span - 1;
 
     if (verbose) print_opts();
 
