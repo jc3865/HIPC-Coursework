@@ -214,20 +214,20 @@ void update_velocity() {
  * @brief Set the timestep size so that we satisfy the Courant-Friedrichs-Lewy
  * conditions. Otherwise the simulation becomes unstable.
  */
-void set_timestep_interval() {
+void set_timestep_interval(MPI_Domain* p_mpi_domain) {
     /* del_t satisfying CFL conditions */
     if (tau >= 1.0e-10) { /* else no time stepsize control */
         double local_umax = 1.0e-10;
         double local_vmax = 1.0e-10; 
         
-        for (int i = 0; i < imax+2; i++) {
-            for (int j = 1; j < jmax+2; j++) {
+        for (int i = p_mpi_domain->starting_X_index; i <= p_mpi_domain->ending_X_index; i++) {
+            for (int j = 1; j <= jmax; j++) {
                 local_umax = fmax(fabs(u[i][j]), local_umax);
             }
         }
 
-        for (int i = 1; i < imax+2; i++) {
-            for (int j = 0; j < jmax+2; j++) {
+        for (int i = p_mpi_domain->starting_X_index; i <= p_mpi_domain->ending_X_index; i++) {
+            for (int j = 1; j <= jmax; j++) {
                 local_vmax = fmax(fabs(v[i][j]), local_vmax);
             }
         }
@@ -290,7 +290,7 @@ int main(int argc, char *argv[]) {
     double t;
     for (t = 0.0; t < t_end; t += del_t, iters++) {
         if (!fixed_dt)
-            set_timestep_interval();
+            set_timestep_interval(&process_domain);
 
         compute_tentative_velocity();
 
