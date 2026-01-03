@@ -130,28 +130,37 @@ void compute_rhs() {
  * @return Calculated residual of the computation
  * 
  */
-double poisson() {
+double poisson(MPI_Domain* p_mpi_domain) {
+    int starting_X_index = p_mpi_domain->starting_X_index;
+    int ending_X_index = p_mpi_domain->ending_X_index;
+    
     double rdx2 = 1.0 / (delx * delx);
     double rdy2 = 1.0 / (dely * dely);
     double beta_2 = -omega / (2.0 * (rdx2 + rdy2));
 
-    double p0 = 0.0;
+    double local_p0 = 0.0;
     /* Calculate sum of squares */
-    for (int i = 1; i < imax+1; i++) {
+    for (int i = starting_X_index; i <= ending_X_index; i++) {
         for (int j = 1; j < jmax+1; j++) {
-            if (flag[i][j] & C_F) { p0 += p[i][j] * p[i][j]; }
+            if (flag[i][j] & C_F) { local_p0 += p[i][j] * p[i][j]; }
         }
     }
-   
-    p0 = sqrt(p0 / fluid_cells); 
-    if (p0 < 0.0001) { p0 = 1.0; }
+    
+    double global_p0;
+    MPI_Allreduce(&local_p0, &global_p0, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    global_p0 = sqrt(global_p0 / fluid_cells); 
+    if (global_p0 < 0.0001) { global_p0 = 1.0; }
+
+    exchange_array(p, p_mpi_domain);
 
     /* Red/Black SOR-iteration */
     int iter;
-    double res = 0.0;
+    double local_res = 0.0;
+    double global_res;
     for (iter = 0; iter < itermax; iter++) {
         for (int rb = 0; rb < 2; rb++) {
-            for (int i = 1; i < imax+1; i++) {
+            for (int i = starting_X_index; i <= ending_X_index; i++) {
                 for (int j = 1; j < jmax+1; j++) {
                     if ((i + j) % 2 != rb) { continue; }
                     if (flag[i][j] == (C_F | B_NSEW)) {
@@ -176,10 +185,12 @@ double poisson() {
                     }
                 }
             }
+
+            exchange_array(p, p_mpi_domain);
         }
         
         /* computation of residual */
-        for (int i = 1; i < imax+1; i++) {
+        for (int i = starting_X_index; i <= ending_X_index; i++) {
             for (int j = 1; j < jmax+1; j++) {
                 if (flag[i][j] & C_F) {
                     double eps_E = ((flag[i+1][j] & C_F) ? 1.0 : 0.0);
@@ -192,17 +203,20 @@ double poisson() {
                         eps_W * (p[i][j] - p[i-1][j])) * rdx2  +
                         (eps_N * (p[i][j+1] - p[i][j]) -
                         eps_S * (p[i][j] - p[i][j-1])) * rdy2  -  rhs[i][j];
-                    res += add * add;
+                    local_res += add * add;
                 }
             }
         }
-        res = sqrt(res / fluid_cells) / p0;
+
+        MPI_Allreduce(&local_res, &global_res, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+        global_res = sqrt(global_res / fluid_cells) / global_p0;
         
         /* convergence? */
-        if (res < eps) break;
+        if (global_res < eps) break;
     }
 
-    return res;
+    return global_res;
 }
 
 
