@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
 
     // Setup domain information for this process.
     int min_domain_X_span = imax / size;
-    int remaining_X_cells = imax % size;
+    int remaining_X_cells = imax % size; // Add remaining cells to first few ranks.
     MPI_Domain process_domain;
     process_domain.owned_X_span = min_domain_X_span + (rank < remaining_X_cells ? 1 : 0);
     process_domain.starting_X_index = 1 + rank * min_domain_X_span + (rank < remaining_X_cells ? rank : remaining_X_cells);
