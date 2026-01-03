@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <mpi.h>
 
 #include "data.h"
 #include "vtk.h"
@@ -244,6 +245,12 @@ void set_timestep_interval() {
  * @return int The return value of the application
  */
 int main(int argc, char *argv[]) {
+    int rank, size;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
     set_defaults();
     parse_args(argc, argv);
     setup();
@@ -288,6 +295,6 @@ int main(int argc, char *argv[]) {
 
     free_arrays();
 
-    return 0;
+    MPI_Finalize();
 }
 
