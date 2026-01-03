@@ -270,6 +270,15 @@ int main(int argc, char *argv[]) {
     process_domain.starting_X_index = 1 + rank * min_domain_X_span + (rank < remaining_X_cells ? rank : remaining_X_cells);
     process_domain.ending_X_index = process_domain.starting_X_index + process_domain.owned_X_span - 1;
 
+
+    printf("Global imax: %d\n", imax);
+    printf("Process %d owns: [starting index: %d, ending index: %d, Total span(%d)]\n", rank, process_domain.starting_X_index, process_domain.ending_X_index, process_domain.owned_X_span);
+    
+
+    MPI_Finalize();
+
+    return 0;
+
     if (verbose) print_opts();
 
     allocate_arrays();
