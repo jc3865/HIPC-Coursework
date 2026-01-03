@@ -46,8 +46,11 @@ void exchange_array(double** array, MPI_Domain* p_mpi_domain) {
  * @brief Computation of tentative velocity field (f, g)
  * 
  */
-void compute_tentative_velocity() {
-    for (int i = 1; i < imax; i++) {
+void compute_tentative_velocity(MPI_Domain* p_mpi_domain) {
+    int starting_X_index = p_mpi_domain->starting_X_index;
+    int ending_X_index = p_mpi_domain->ending_X_index;
+
+    for (int i = starting_X_index; i <= ending_X_index; i++) {
         for (int j = 1; j < jmax+1; j++) {
             /* only if both adjacent cells are fluid cells */
             if ((flag[i][j] & C_F) && (flag[i+1][j] & C_F)) {
@@ -70,7 +73,7 @@ void compute_tentative_velocity() {
             }
         }
     }
-    for (int i = 1; i < imax+1; i++) {
+    for (int i = starting_X_index; i <= ending_X_index; i++) {
         for (int j = 1; j < jmax; j++) {
             /* only if both adjacent cells are fluid cells */
             if ((flag[i][j] & C_F) && (flag[i][j+1] & C_F)) {
@@ -99,7 +102,7 @@ void compute_tentative_velocity() {
         f[0][j]    = u[0][j];
         f[imax][j] = u[imax][j];
     }
-    for (int i = 1; i < imax+1; i++) {
+    for (int i = starting_X_index; i <= ending_X_index; i++) {
         g[i][0]    = v[i][0];
         g[i][jmax] = v[i][jmax];
     }
@@ -110,8 +113,11 @@ void compute_tentative_velocity() {
  * @brief Calculate the right hand side of the pressure equation 
  * 
  */
-void compute_rhs() {
-    for (int i = 1; i < imax+1; i++) {
+void compute_rhs(MPI_Domain* p_mpi_domain) {
+    int starting_X_index = p_mpi_domain->starting_X_index;
+    int ending_X_index = p_mpi_domain->ending_X_index;
+    
+    for (int i = starting_X_index; i <= ending_X_index; i++) {
         for (int j = 1;j < jmax+1; j++) {
             if (flag[i][j] & C_F) {
                 /* only for fluid and non-surface cells */
@@ -332,11 +338,11 @@ int main(int argc, char *argv[]) {
         if (!fixed_dt)
             set_timestep_interval(&process_domain);
 
-        compute_tentative_velocity();
+        compute_tentative_velocity(&process_domain);
 
-        compute_rhs();
+        compute_rhs(&process_domain);
 
-        res = poisson();
+        res = poisson(&process_domain);
 
         // Halo exchange p array.
         exchange_array(p, &process_domain);
