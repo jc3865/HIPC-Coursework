@@ -210,8 +210,11 @@ double poisson() {
  * @brief Update the velocity values based on the tentative
  * velocity values and the new pressure matrix
  */
-void update_velocity() {   
-    for (int i = 1; i < imax-2; i++) {
+void update_velocity(MPI_Domain* p_mpi_domain) {
+    int starting_X_index = p_mpi_domain->starting_X_index;
+    int ending_X_index = p_mpi_domain->ending_X_index;
+
+    for (int i = starting_X_index; i <= ending_X_index; i++) {
         for (int j = 1; j < jmax-1; j++) {
             /* only if both adjacent cells are fluid cells */
             if ((flag[i][j] & C_F) && (flag[i+1][j] & C_F)) {
@@ -220,7 +223,7 @@ void update_velocity() {
         }
     }
     
-    for (int i = 1; i < imax-1; i++) {
+    for (int i = starting_X_index; i <= ending_X_index; i++) {
         for (int j = 1; j < jmax-2; j++) {
             /* only if both adjacent cells are fluid cells */
             if ((flag[i][j] & C_F) && (flag[i][j+1] & C_F)) {
@@ -321,7 +324,10 @@ int main(int argc, char *argv[]) {
 
         res = poisson();
 
-        update_velocity();
+        // Halo exchange p array.
+        exchange_array(p, &process_domain);
+
+        update_velocity(&process_domain);
 
         apply_boundary_conditions();
 
