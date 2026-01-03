@@ -209,23 +209,31 @@ void update_velocity() {
 void set_timestep_interval() {
     /* del_t satisfying CFL conditions */
     if (tau >= 1.0e-10) { /* else no time stepsize control */
-        double umax = 1.0e-10;
-        double vmax = 1.0e-10; 
+        double local_umax = 1.0e-10;
+        double local_vmax = 1.0e-10; 
         
         for (int i = 0; i < imax+2; i++) {
             for (int j = 1; j < jmax+2; j++) {
-                umax = fmax(fabs(u[i][j]), umax);
+                local_umax = fmax(fabs(u[i][j]), local_umax);
             }
         }
 
         for (int i = 1; i < imax+2; i++) {
             for (int j = 0; j < jmax+2; j++) {
-                vmax = fmax(fabs(v[i][j]), vmax);
+                local_vmax = fmax(fabs(v[i][j]), local_vmax);
             }
         }
 
-        double deltu = delx / umax;
-        double deltv = dely / vmax; 
+        // Use a reduction to find the maximum global umax
+        double global_umax;
+        MPI_Allreduce(&local_umax, &global_umax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+        // Use a reduction to find the maximum global vmax
+        double global_vmax;
+        MPI_Allreduce(&local_vmax, &global_vmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+        double deltu = delx / global_umax;
+        double deltv = dely / global_vmax; 
         double deltRe = 1.0 / (1.0 / (delx * delx) + 1 / (dely * dely)) * Re / 2.0;
 
         if (deltu < deltv) {
