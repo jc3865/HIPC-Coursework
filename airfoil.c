@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
         exchange_array(u, &process_domain);
         exchange_array(v, &process_domain);
 
-        apply_boundary_conditions();
+        apply_boundary_conditions(&process_domain);
 
         if (rank == 0 && (iters % output_freq == 0)) {
             printf("Step %8d, Time: %14.8e (del_t: %14.8e), Residual: %14.8e\n", iters, t+del_t, del_t, res);
