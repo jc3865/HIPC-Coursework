@@ -58,4 +58,18 @@ double **alloc_2d_array(int m, int n);
 char **alloc_2d_char_array(int m, int n);
 void free_2d_array(void ** array);
 
+// Struct and function definitions for MPI implementation
+
+// This structure can be used to store the local index information
+// for each MPI process.
+typedef struct {
+    int rank, size;
+
+    int owned_X_span;
+    int starting_X_index;
+    int ending_X_index;
+} MPI_Domain;
+
+void exchange_array(double** array, MPI_Domain* p_mpi_domain);
+
 #endif

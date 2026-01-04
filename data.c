@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <unistd.h>
+#include <mpi.h>
 
 #include "vtk.h"
 #include "data.h"
@@ -91,4 +92,24 @@ char **alloc_2d_char_array(int m, int n) {
 void free_2d_array(void ** array) {
 	free(array[0]);
 	free(array);
+}
+
+// This function is used for halo exchanges.
+void exchange_array(double** array, MPI_Domain* p_mpi_domain) {
+    int starting_X_index = p_mpi_domain->starting_X_index;
+    int ending_X_index = p_mpi_domain->ending_X_index;
+
+    // Calculate left and right ranks.
+    int left = p_mpi_domain->rank > 0 ? p_mpi_domain->rank - 1 : MPI_PROC_NULL;
+    int right = p_mpi_domain->rank < p_mpi_domain->size - 1 ? p_mpi_domain->rank + 1 : MPI_PROC_NULL;
+
+    // Exchange right interior column with right neighbour (fills left ghost)
+    MPI_Sendrecv(&array[ending_X_index][1], jmax, MPI_DOUBLE, right, 0,
+                 &array[starting_X_index - 1][1], jmax, MPI_DOUBLE, left, 0,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    // Exchange left interior column with left neighbour (fills right ghost)
+    MPI_Sendrecv(&array[starting_X_index][1], jmax, MPI_DOUBLE, left, 0,
+                 &array[ending_X_index + 1][1], jmax, MPI_DOUBLE, right, 0,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
